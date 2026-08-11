@@ -49,7 +49,7 @@ class TwitchNotificationsModule {
 	}
 
 	protected async onGuildCreate(guild: Discord.Guild) {
-		if (DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guild.id))
+		if (DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guild.id))
 			await this.data.getGuild(guild.id);
 	}
 

@@ -35,7 +35,7 @@ export async function makeStreamOnlineMessage(_channelData: Data.TwitchChannel<D
 	const checkForStreamChangesForGuild = checkForStreamChanges(channelData, entry, null);
 	for (const guildData of Module.data.guilds.values() as MapIterator<Data.Guild<Data.Stream.Live>>) {
 		if (!guildData.isEnabled()) continue;
-		if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildData.guild.id)) continue;
+		if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildData.guild.id)) continue;
 
 		const guildChannelData = await Module.data.getEnabledGuildTwitchChannel<Data.Stream.Live>(guildData, channelData);
 		if (guildChannelData instanceof Error) continue;
@@ -103,7 +103,7 @@ export async function makeStreamOfflineMessage(channelData: Data.TwitchChannel<D
 
 	for (const guildData of Module.data.guilds.values() as MapIterator<Data.Guild<Data.Stream.Live>>) {
 		if (!guildData.isEnabled()) continue;
-		if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildData.guild.id)) continue;
+		if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildData.guild.id)) continue;
 
 		const guildChannelData = await Module.data.getEnabledGuildTwitchChannel<Data.Stream.Live>(guildData, channelData);
 		if (guildChannelData instanceof Error) continue;

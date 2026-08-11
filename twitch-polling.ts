@@ -45,7 +45,7 @@ async function checkAllChannels() {
 				const checkForStreamChangesForGuild = checkForStreamChanges(channelData, getStreamsEntry, { game_name: channelData.stream.games[channelData.stream.games.length - 1], title: channelData.stream.title, viewer_count: channelData.stream.viewers});
 				if (checkForStreamChangesForGuild) for (const guildData of Module.data.guilds.values() as MapIterator<Data.Guild<Data.Stream.Live>>) {
 					if (!guildData.isEnabled()) continue;
-					if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildData.guild.id)) continue;
+					if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildData.guild.id)) continue;
 
 					const guildChannelData = await Module.data.getEnabledGuildTwitchChannel<Data.Stream.Live>(guildData, channelData);
 					if (guildChannelData instanceof Error) continue;
@@ -118,7 +118,7 @@ export async function getStreamsPolling() {
 					const checkForStreamChangesForGuild = checkForStreamChanges(channelData, getStreamsEntry, prevGetStreams[channelData.user.id]);
 					if (checkForStreamChangesForGuild) for (const guildData of Module.data.guilds.values() as MapIterator<Data.Guild<Data.Stream.Live>>) {
 						if (!guildData.isEnabled()) continue;
-						if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildData.guild.id)) continue;
+						if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildData.guild.id)) continue;
 
 						const guildChannelData = await Module.data.getEnabledGuildTwitchChannel<Data.Stream.Live>(guildData, channelData);
 						if (guildChannelData instanceof Error) continue;
@@ -174,7 +174,7 @@ export async function getStreamsPolling() {
 
 				for (let guildChannelData of channelData.guildTwitchChannels.values()) {
 					if (!guildChannelData.isEnabled()) continue;
-					if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildChannelData.guild.guild.id)) continue;
+					if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildChannelData.guild.guild.id)) continue;
 
 					const guildData = guildChannelData.guild;
 					if (!guildData.isEnabled()) continue;
@@ -242,7 +242,7 @@ export async function getStreamsPolling() {
 
 			for (let guildChannelData of channelData.guildTwitchChannels.values()) {
 				if (!guildChannelData.isEnabled()) continue;
-				if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildChannelData.guild.guild.id)) continue;
+				if (!DiscordModule.slashCommands.isCommandInGuildAllowed(slashCommandGetName, guildChannelData.guild.guild.id)) continue;
 
 				const guildData = guildChannelData.guild;
 				if (!guildData.isEnabled()) continue;

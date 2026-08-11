@@ -86,7 +86,7 @@ export class GuildTwitchChannel<_Stream extends Stream = Stream> {
 	enabled: boolean;
 
 	/** discord channel object, used for posting stream notification messages */
-	channel: Discord.NewsChannel | undefined;
+	channel: Discord.NewsChannel | Discord.TextChannel | undefined;
 	/** discord channel object, used for posting stream notification messages */
 	channelID: string | undefined;
 
@@ -123,7 +123,7 @@ export class GuildTwitchChannel<_Stream extends Stream = Stream> {
 		return !this.enabled;
 	}
 
-	enable(guild: Exclude<typeof this.guild, undefined>, twitchChannel: Exclude<typeof this.twitchChannel, undefined>, channel: Discord.NewsChannel, message?: Discord.Message<true>): GuildTwitchChannel.Enabled<_Stream> {
+	enable(guild: Exclude<typeof this.guild, undefined>, twitchChannel: Exclude<typeof this.twitchChannel, undefined>, channel: Discord.NewsChannel | Discord.TextChannel, message?: Discord.Message<true>): GuildTwitchChannel.Enabled<_Stream> {
 		this.guild = guild;
 		this.twitchChannel = twitchChannel;
 		this.enabled = true;
@@ -155,7 +155,7 @@ export namespace GuildTwitchChannel {
 		twitchChannel: TwitchChannel<_Stream>;
 
 		enabled: true;
-		channel: Discord.NewsChannel;
+		channel: Discord.NewsChannel | Discord.TextChannel;
 		channelID: undefined;
 		message: Discord.Message<true> | undefined;
 	}
@@ -495,14 +495,14 @@ export default class ModuleData extends BaseData {
 							const c = await guildData.guild.channels.fetch(guildChannelData.channelID);
 							if (!c)
 								throw new Error("Not found");
-							if (c.type !== Discord.ChannelType.GuildAnnouncement)
-								throw new Error("Isn't news channel");
+							if (!(c.type === Discord.ChannelType.GuildAnnouncement || c.type === Discord.ChannelType.GuildText))
+								throw new Error("Isn't news or text channel");
 							guildChannelData.enabled = true;
 							guildChannelData.channel = c;
 							guildChannelData.channelID = undefined;
 						}
 						catch(error) {
-							Module.log.error("Getting news channel failed, twitch channel will be disabled for this guild", {error, args: {guild: `${guildData.guild.name} (${guildData.guild.id})`, twitchChannel: `${twitchChannel.user.login} (${twitchChannel.user.id})`, channelID: guildChannelData.channelID}});
+							Module.log.error("Getting news or text channel failed, twitch channel will be disabled for this guild", {error, args: {guild: `${guildData.guild.name} (${guildData.guild.id})`, twitchChannel: `${twitchChannel.user.login} (${twitchChannel.user.id})`, channelID: guildChannelData.channelID}});
 							continue;
 						}
 					}

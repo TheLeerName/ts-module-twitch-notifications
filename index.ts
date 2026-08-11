@@ -115,9 +115,9 @@ class TwitchNotificationsModule {
 
 	async createDiscordChannel(guild: Discord.Guild, twitchChannelLogin: string, categoryID: string) {
 		const name = textMap.discordChannelNameOffline.replaceAll("%1", twitchChannelLogin);
-		return await Core.tasks.queue<Discord.NewsChannel>(`guild_${guild.id}_channelCreate_${name}`, signal => new Promise((resolve, reject) => {
+		return await Core.tasks.queue<Discord.NewsChannel | Discord.TextChannel>(`guild_${guild.id}_channelCreate_${name}`, signal => new Promise((resolve, reject) => {
 			signal.addEventListener("abort", _ => reject());
-			guild.channels.create({name, type: Discord.ChannelType.GuildAnnouncement, parent: categoryID, topic: textMap.discordChannelTopic}).then(resolve).catch(reject);
+			guild.channels.create({name, type: guild.features?.includes("COMMUNITY") ? Discord.ChannelType.GuildAnnouncement : Discord.ChannelType.GuildText, parent: categoryID, topic: textMap.discordChannelTopic}).then(resolve).catch(reject);
 		}));
 	}
 

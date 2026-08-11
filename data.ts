@@ -519,7 +519,7 @@ export default class ModuleData extends BaseData {
 			}
 		}, async() => {
 			const save: Record<string, any> = {};
-			this.channels.forEach((v, k) => save[k] = v.toJSON());
+			this.guilds.forEach((v, k) => save[k] = v.toJSON());
 			return save;
 		}));
 

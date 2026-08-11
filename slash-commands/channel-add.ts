@@ -7,6 +7,7 @@ import * as Data from "../data.js";
 import { makeStreamOnlineMessage } from "../messages.js";
 import { updateState } from "../twitch-eventsub.js";
 import Module from "../index.js";
+import { slashCommandSetName } from "./set.js";
 
 import * as Discord from "discord.js";
 import * as Twitch from "twitch.ts";
@@ -42,7 +43,7 @@ export default () => {
 
 			const guildData = await Module.data.getGuild(interaction.guild.id);
 			if (!guildData.categoryID)
-				throw new Error("Категория для создания каналов не была указана, используйте команду /twitch set чтобы установить её");
+				throw new Error(`Категория для создания каналов не была указана, используйте команду /${slashCommandSetName} чтобы установить её`);
 
 			let channelData = await Module.data.getTwitchChannel(query);
 			if (!channelData)

@@ -5,9 +5,11 @@ import Module from "../index.js";
 
 import * as Discord from "discord.js";
 
+export const slashCommandSetName = "tn-set";
+
 export default () => {
 	const c = new SlashCommand()
-	.setName("tn-set")
+	.setName(slashCommandSetName)
 	.setDescription(`Changes module parameters of this server in Twitch stream notifications module`)
 	.setDescriptionLocalization("ru", `Изменяет параметры этого сервера в модуле оповещений о стримах на Twitch`)
 	.setChatInput(async(interaction) => {

@@ -1,6 +1,6 @@
 import Core from "../../../index.js";
 import TwitchModule from "../../twitch/index.js";
-import { SlashCommand } from "../../discord/slash-commands/index.js";
+import { SlashCommand } from "../../discord/index.js";
 import { getChoices_twitchChannel } from "../../twitch-in-discord-commands/slash-commands/index.js";
 
 import * as Data from "../data.js";

@@ -5,7 +5,7 @@ import Module from "../index.js";
 
 import * as Discord from "discord.js";
 
-/** Will use that command name when checking guild whitelist in discord events of this module */
+/** That command name uses for slash command allowing/banning system, if this will be banned on server, module will stop functioning on this server */
 export const slashCommandGetName = "tn-get";
 
 export default () => {

@@ -9,20 +9,12 @@ import SlashCommandGet, { slashCommandGetName } from "./slash-commands/get.js";
 import SlashCommandSet from "./slash-commands/set.js";
 
 import twitchPollingInitialize from "./twitch-polling.js";
-import { textMap, makeStreamOnlineMessage, makeStreamOfflineMessage, checkForStreamChanges } from "./messages.js";
-import { getStreamsRecord, skipGetStreamsPollingTimeout } from "./twitch-polling.js";
+import { textMap } from "./messages.js";
 import twitchEventSubInitialize, { updateState } from "./twitch-eventsub.js";
 import * as Data from "./data.js";
 
 import * as Discord from "discord.js";
 import * as Twitch from "twitch.ts";
-
-const discordGuildWhitelistModuleName = "discord-guild-whitelist";
-interface IDiscordGuildWhitelistModule extends IModule {
-	readonly data: BaseData & {
-		isWhitelisted: (moduleName: string, guild: Discord.Guild) => boolean;
-	};
-}
 
 class TwitchNotificationsModule {
 	readonly name = "twitch-notifications" as const;
@@ -74,57 +66,6 @@ class TwitchNotificationsModule {
 				reason: "Discord bot was kicked/banned from guild"
 			}});
 		}
-	}
-
-	async checkAllChannels() {
-		const channelsID: string[] = [];
-		this.data.channels.forEach(channel => channelsID.push(channel.user.id));
-		const getStreams = await getStreamsRecord(channelsID);
-		for (const channelData of this.data.channels.values()) {
-			if (channelData.banned) continue;
-
-			const getStreamsEntry = getStreams[channelData.user.id];
-			if (channelData.isStreamOffline() && getStreamsEntry != null) {
-				await this.updateUserData(channelData);
-				await makeStreamOnlineMessage(channelData, getStreamsEntry);
-				continue;
-			}
-			if (channelData.isStreamLive()) {
-				if (getStreamsEntry) {
-					await this.updateUserData(channelData);
-					const checkForStreamChangesForGuild = checkForStreamChanges(channelData, getStreamsEntry, { game_name: channelData.stream.games[channelData.stream.games.length - 1], title: channelData.stream.title, viewer_count: channelData.stream.viewers});
-					if (checkForStreamChangesForGuild) for (const guildData of this.data.guilds.values() as MapIterator<Data.Guild<Data.Stream.Live>>) {
-						if (!guildData.isEnabled()) continue;
-						if (!DiscordModule.data.isSlashCommandInGuildWhitelist(slashCommandGetName, guildData.guild.id)) continue;
-
-						const guildChannelData = await this.data.getEnabledGuildTwitchChannel<Data.Stream.Live>(guildData, channelData);
-						if (guildChannelData instanceof Error) continue;
-						if (!guildChannelData.message) continue;
-
-						let thread;
-						try {
-							thread = await this.getDiscordThread(guildChannelData.message);
-						}
-						catch(error) {
-							this.log.error("Error occurred while starting discord thread", {error, args: {
-								guild: `${guildData.guild.name} (${guildData.guild.id})`,
-								channel: `#${guildChannelData.channel.name} (${guildChannelData.channel.id})`,
-								messageLink: this.makeDiscordMessageLink(guildData.guild.id, guildChannelData.channel.id, guildChannelData.message.id)
-							}});
-						}
-
-						await checkForStreamChangesForGuild(guildChannelData, guildChannelData.message, thread);
-					}
-				}
-				else {
-					await this.updateUserData(channelData);
-					await makeStreamOfflineMessage(channelData, channelData.banned ? "Стрим окончен, потому что стример был забанен" : undefined);
-				}
-				continue;
-			}
-		}
-		await skipGetStreamsPollingTimeout();
-		await updateState();
 	}
 
 	readonly updateUserDataTimeoutMS = 1800000; // 30 minutes

@@ -23,7 +23,6 @@ export function clearPollingTimeout() {
 }
 
 export default async() => {
-	checkAllChannels();
 	DiscordModule.client.on("shard0Ready", () => checkAllChannels());
 }
 

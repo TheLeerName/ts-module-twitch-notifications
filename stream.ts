@@ -34,6 +34,8 @@ export class Stream {
 	games?: string[];
 	/** Count of viewers */
 	viewers?: number;
+	/** A URL to an image of a frame from the last 5 minutes of the stream. Replace the width and height placeholders in the URL ({width}x{height}) with the size of the image you want, in pixels. */
+	thumbnailURL?: string;
 	/** The UTC date and time (in RFC3339 format) of when the broadcast ended. */
 	endedAt?: string;
 	/** tries left for getting vod data */
@@ -45,6 +47,63 @@ export class Stream {
 	}
 
 	/** Do not forget `data.save()` after doing this */
+	async updateFromRequest() {
+		const changedEntries: (keyof Pick<Stream, "title" | "games" | "viewers" | "thumbnailURL">)[] = [];
+
+		const result = await TwitchModule.authorization.request(Twitch.Helix.GetStreams.axiosRequest, {
+			user_id: this.parent.id, type: "live", first: 1,
+		});
+		if (!result.ok) {
+			Module.fatalWithDisabling(`Getting livestream information failed`, {error: `${result.status} - ${result.message}`});
+			return changedEntries;
+		}
+
+		const data = result.data[0];
+		if (!data) {
+			if (this.isLive())
+				this.setGettingVOD({endedAt: new Date().toISOString(), triesToGet: Module.TRIES_TO_GET});
+		}
+
+		this.id = data.id;
+		this.startedAt = data.started_at;
+		if (this.title !== data.title) {
+			this.title = data.title;
+			changedEntries.push("title");
+		}
+		if (this.games == null) {
+			this.games = [data.game_name];
+			changedEntries.push("games");
+		}
+		else if (this.games[this.games.length - 1] !== data.game_name) {
+			this.games.push(data.game_name);
+			changedEntries.push("games");
+		}
+		if (this.viewers !== data.viewer_count) {
+			this.viewers = data.viewer_count;
+			changedEntries.push("viewers");
+		}
+		if (this.thumbnailURL !== data.thumbnail_url) {
+			this.thumbnailURL = data.thumbnail_url;
+			changedEntries.push("thumbnailURL");
+		}
+		return changedEntries;
+	}
+
+	async getVODFromRequest() {
+		const result = await TwitchModule.authorization.request(Twitch.Helix.GetVideos.axiosRequest, {
+			id: this.id, type: "archive", first: 1,
+		});
+		if (!result.ok)
+			return Module.fatalWithDisabling(`Getting livestream information failed`, {error: `${result.status} - ${result.message}`});
+
+		const data = result.data[0];
+		if (!data)
+			return null;
+
+		return data;
+	}
+
+	/** Do not forget `data.save()` after doing this */
 	setOffline(): StreamOffline {
 		this.status = "offline";
 		delete this.id;
@@ -52,42 +111,21 @@ export class Stream {
 		delete this.title;
 		delete this.games;
 		delete this.viewers;
+		delete this.thumbnailURL;
 		delete this.endedAt;
 		delete this.triesToGet;
 		return this as any;
 	}
 
 	/** Do not forget `data.save()` after doing this */
-	setLive(fields: Required<Omit<StreamSave, "status" | "endedAt" | "triesToGet">>): StreamLive {
+	setLive(fields: Required<Pick<Stream, "id" | "startedAt" | "title" | "games" | "viewers" | "thumbnailURL">>): StreamLive {
 		this.status = "live";
 		this.id = fields.id;
 		this.startedAt = fields.startedAt;
 		this.title = fields.title;
 		this.games = fields.games;
 		this.viewers = fields.viewers;
-		return this as any;
-	}
-
-	/** Do not forget `data.save()` after doing this */
-	async setLiveFromRequest(): Promise<StreamLive> {
-		const result = await TwitchModule.authorization.request.getStreams({
-			user_id: this.parent.id, type: "live", first: 1,
-		});
-		if (!result.ok)
-			return Module.fatalWithDisabling(`Getting livestream information failed`, {error: `${result.status} - ${result.message}`});
-
-		const data = result.data[0];
-		if (!data)
-			return Module.fatalWithDisabling(`Getting livestream information failed`, {error: `Channel is offline`});
-
-		this.id = data.id;
-		this.startedAt = data.started_at;
-		this.title = data.title;
-		if (this.games == null)
-			this.games = [data.game_name];
-		else if (this.games[this.games.length - 1] !== data.game_name)
-			this.games.push(data.game_name);
-		this.viewers = data.viewer_count;
+		this.thumbnailURL = fields.thumbnailURL;
 		return this as any;
 	}
 
@@ -98,6 +136,7 @@ export class Stream {
 	 */
 	setGettingVOD(fields: Required<Pick<StreamSave, "endedAt" | "triesToGet">>): StreamGettingVOD {
 		this.status = "getting_vod";
+		delete this.thumbnailURL;
 		this.endedAt = fields.endedAt;
 		this.triesToGet = fields.triesToGet;
 		return this as any;
@@ -146,6 +185,7 @@ export interface StreamOffline extends Stream {
 	title: undefined;
 	games: undefined;
 	viewers: undefined;
+	thumbnailURL: undefined;
 	endedAt: undefined;
 	triesToGet: undefined;
 }
@@ -157,6 +197,7 @@ export interface StreamLive extends Stream {
 	title: string;
 	games: string[];
 	viewers: number;
+	thumbnailURL: string;
 	endedAt: undefined;
 	triesToGet: undefined;
 }
@@ -168,6 +209,7 @@ export interface StreamGettingVOD extends Stream {
 	title: string;
 	games: string[];
 	viewers: number;
+	thumbnailURL: undefined;
 	endedAt: string;
 	triesToGet: number;
 }

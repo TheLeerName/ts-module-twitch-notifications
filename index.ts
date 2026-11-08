@@ -102,6 +102,7 @@ export class TwitchNotificationsModule extends EventEmitter {
 			if (channel.stream.isGettingVOD() && prevStatus === "live")
 				this.emit("offline", channel as Channel<StreamGettingVOD>);
 		}
+		this.polling.runOrStop();
 	}
 
 	protected async onStreamOnline(message: Twitch.EventSub.StreamOnline.MessageNotification) {

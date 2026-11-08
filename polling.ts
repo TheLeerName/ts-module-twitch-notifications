@@ -26,6 +26,7 @@ export default class Polling {
 	protected async poll() {
 		if (!this.running) return;
 
+		// TODO: updateFromRequest for all channels in one axios request
 		let save = false;
 		for (const channel of Module.channels.values()) {
 			if (!channel.enabled) continue;

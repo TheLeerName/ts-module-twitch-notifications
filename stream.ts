@@ -64,6 +64,7 @@ export class Stream {
 				this.setGettingVOD({endedAt: new Date().toISOString(), triesToGet: Module.TRIES_TO_GET});
 		}
 
+		this.status = "live";
 		this.id = data.id;
 		this.startedAt = data.started_at;
 		if (this.title !== data.title) {
@@ -99,6 +100,8 @@ export class Stream {
 		const data = result.data[0];
 		if (!data)
 			return null;
+
+		this.endedAt = new Date(new Date(data.created_at).getTime() + Module.iso8601ToDecimalTime(data.duration)).toISOString();
 
 		return data;
 	}

@@ -51,10 +51,15 @@ export class TwitchNotificationsModule extends EventEmitter {
 	/** Do not forget `data.save()` after doing this */
 	async addChannelByLogin(login: string) {
 		const channel = await this.channels.addFromRequestByLogin(login);
-		//await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: channel.id});
-		//channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
-		//await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: channel.id});
-		//channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
+
+		await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: channel.id});
+		channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
+		await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: channel.id});
+		channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
+
+		await channel.stream.updateFromRequest();
+		if (channel.stream.isLive())
+			this.emit("online", channel as Channel<StreamLive>);
 
 		return channel;
 	}
@@ -66,47 +71,37 @@ export class TwitchNotificationsModule extends EventEmitter {
 		channel.enabled = false;
 		//this.channels.deleteValue(channel);
 
-		//if (channel.streamOnlineSubIndex)
-		//	await TwitchModule.ws.unsubscribeFromEvent(channel.streamOnlineSubIndex);
-		//if (channel.streamOfflineSubIndex)
-		//	await TwitchModule.ws.unsubscribeFromEvent(channel.streamOfflineSubIndex);
+		if (channel.streamOnlineSubIndex)
+			await TwitchModule.ws.unsubscribeFromEvent(channel.streamOnlineSubIndex);
+		if (channel.streamOfflineSubIndex)
+			await TwitchModule.ws.unsubscribeFromEvent(channel.streamOfflineSubIndex);
+	}
+
+	protected mults: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+	/** converts from ISO 8601 format to milliseconds, doesnt support months and greater */
+	iso8601ToDecimalTime(duration: string): number {
+		var seconds = 0;
+		while(true) {
+			const part = parseInt(duration);
+			duration = duration.substring(`${part}`.length);
+			if (!isNaN(part)) seconds += part * (this.mults[duration.charAt(0)] ?? 1);
+			else return seconds * 1000;
+			duration = duration.substring(1);
+		}
 	}
 
 	protected async onTwitchInitialized() {
-		//for (const [id, channel] of this.channels) {
-			//await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: id});
-			//await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: id});
-			//await channel.stream.updateFromRequest();
-		//}
-		/*console.log(JSON.stringify(await TwitchModule.authorization.request.withRefreshing(Twitch.Helix.GetUsers.axiosRequest, {
-			login: "tham"
-		})));*/
-		/*this.channels.addFromJSON("1", {
-			enabled: true,
-			stream: { status: "offline" }
-		});*/
-		//this.data.save();
-		/*console.log(JSON.stringify(this.channels.toJSON()));
-		this.channels.get("1")!.stream.setLive({
-			id: "2",
-			startedAt: "2",
-			title: "hi",
-			games: ["Overwatch"],
-			viewers: 67
-		});
-		console.log(JSON.stringify(this.channels.toJSON()));
-		this.channels.get("1")!.stream.setGettingVOD({
-			endedAt: "3",
-			triesToGet: 360,
-		});
-		console.log(JSON.stringify(this.channels.toJSON()));
-		await this.data.save();*/
-		/*TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {
-			broadcaster_user_id: "",
-		});
-		TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {
-			broadcaster_user_id: "",
-		});*/
+		for (const [id, channel] of this.channels) {
+			await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: id});
+			await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: id});
+
+			const prevStatus = channel.stream.status;
+			await channel.stream.updateFromRequest();
+			if (channel.stream.isLive() && prevStatus === "offline")
+				this.emit("online", channel as Channel<StreamLive>);
+			if (channel.stream.isGettingVOD() && prevStatus === "live")
+				this.emit("offline", channel as Channel<StreamGettingVOD>);
+		}
 	}
 
 	protected async onStreamOnline(message: Twitch.EventSub.StreamOnline.MessageNotification) {
@@ -119,7 +114,7 @@ export class TwitchNotificationsModule extends EventEmitter {
 		if (!channel.stream.isLive())
 			return this.fatalWithDisabling(`Module was disabled`, {error: `channels["${channel.id}"].stream.status is not "live"`});
 		this.emit("online", channel as Channel<StreamLive>);
-		//this.polling.run();
+		this.polling.run();
 	}
 	protected async onStreamOffline(message: Twitch.EventSub.StreamOffline.MessageNotification) {
 		const event = message.payload.event;
@@ -130,7 +125,7 @@ export class TwitchNotificationsModule extends EventEmitter {
 		if (!channel.stream.isGettingVOD())
 			return this.fatalWithDisabling(`Module was disabled`, {error: `channels["${channel.id}"].stream.status is not "getting_vod"`});
 		this.emit("offline", channel as Channel<StreamGettingVOD>);
-		//this.polling.runOrStop();
+		this.polling.runOrStop();
 	}
 
 	override once<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {

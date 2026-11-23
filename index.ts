@@ -1,5 +1,5 @@
-import Core from "../../index.js";
-import TwitchModule from "../twitch/index.js";
+import * as Core from "../../index.js";
+import { Module as TwitchModule } from "../twitch/index.js";
 import Data from "./data.js";
 import { Channel, Channels } from "./channel.js";
 import type { Stream, StreamLive, StreamGettingVOD } from "./stream.js";
@@ -8,7 +8,7 @@ import Polling from "./polling.js";
 import * as Twitch from "twitch.ts";
 import EventEmitter from "node:stream";
 
-export interface TwitchNotificationsEvents {
+export interface Events {
 	online: (channel: Channel<StreamLive>) => void;
 	progress: (channel: Channel<StreamLive>) => void;
 	progress_changed_entries: (channel: Channel<StreamLive>, entryNames: Awaited<ReturnType<Stream["updateFromRequest"]>>) => void;
@@ -17,29 +17,38 @@ export interface TwitchNotificationsEvents {
 	vod_no_more_tries: (channel: Channel<StreamGettingVOD>) => void;
 }
 
-export class TwitchNotificationsModule extends EventEmitter {
+export class Module extends EventEmitter implements Core.IModule {
+	readonly initializeBefore = ["twitch"];
 	readonly name = "twitch-notifications" as const;
-	readonly data: Data;
-	readonly log = Core.log.makeFunctions(this.name);
+	readonly data!: Data;
+	readonly core!: Core.Core;
+	readonly log!: Core.ModuleLogFunctions;
+	readonly twitch!: TwitchModule;
 
 	readonly channels = new Channels();
 	readonly polling = new Polling();
 
 	readonly TRIES_TO_GET = 360;
 
-	constructor() {
-		super();
-		this.data = new Data(this).initialize();
+	async initialize() {
+		//throw new Error("nope.");
 
-		TwitchModule
+		const twitch = Core.default.modules.getInstance<TwitchModule>(this.twitch.name);
+		if (twitch == null) return;
+
+		Core.default.modules.setReadonlyFields(this, {
+			data: new Data(this),
+			core: Core.default,
+			log: Core.default.log.makeFunctions(this.name),
+			twitch,
+		});
+		this.data.initialize();
+
+		this.twitch
 			.once("initialized", () => this.onTwitchInitialized());
-		TwitchModule.ws
+		this.twitch.ws
 			.on("stream.online", message => this.onStreamOnline(message))
 			.on("stream.offline", message => this.onStreamOffline(message));
-	}
-
-	isDisabled() {
-		return this.data.disabled;
 	}
 
 	async fatalWithDisabling(msg: any, options?: Parameters<typeof this.log.fatal>[1]) {
@@ -52,10 +61,10 @@ export class TwitchNotificationsModule extends EventEmitter {
 	async addChannelByLogin(login: string) {
 		const channel = await this.channels.addFromRequestByLogin(login);
 
-		await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: channel.id});
-		channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
-		await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: channel.id});
-		channel.streamOnlineSubIndex = TwitchModule.ws.subscriptions.length - 1;
+		await this.twitch.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: channel.id});
+		channel.streamOnlineSubIndex = this.twitch.ws.subscriptions.length - 1;
+		await this.twitch.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: channel.id});
+		channel.streamOnlineSubIndex = this.twitch.ws.subscriptions.length - 1;
 
 		await channel.stream.updateFromRequest();
 		if (channel.stream.isLive())
@@ -72,9 +81,9 @@ export class TwitchNotificationsModule extends EventEmitter {
 		//this.channels.deleteValue(channel);
 
 		if (channel.streamOnlineSubIndex)
-			await TwitchModule.ws.unsubscribeFromEvent(channel.streamOnlineSubIndex);
+			await this.twitch.ws.unsubscribeFromEvent(channel.streamOnlineSubIndex);
 		if (channel.streamOfflineSubIndex)
-			await TwitchModule.ws.unsubscribeFromEvent(channel.streamOfflineSubIndex);
+			await this.twitch.ws.unsubscribeFromEvent(channel.streamOfflineSubIndex);
 	}
 
 	protected mults: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
@@ -92,8 +101,8 @@ export class TwitchNotificationsModule extends EventEmitter {
 
 	protected async onTwitchInitialized() {
 		for (const [id, channel] of this.channels) {
-			await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: id});
-			await TwitchModule.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: id});
+			await this.twitch.ws.subscribeToEvent(Twitch.EventSub.StreamOnline.RequestBody, {broadcaster_user_id: id});
+			await this.twitch.ws.subscribeToEvent(Twitch.EventSub.StreamOffline.RequestBody, {broadcaster_user_id: id});
 
 			const prevStatus = channel.stream.status;
 			await channel.stream.updateFromRequest();
@@ -129,26 +138,26 @@ export class TwitchNotificationsModule extends EventEmitter {
 		this.polling.runOrStop();
 	}
 
-	override once<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {
+	override once<EventName extends keyof Events>(eventName: EventName, listener: Events[EventName]) {
 		return super.once(eventName, listener);
 	}
-	override prependOnceListener<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {
+	override prependOnceListener<EventName extends keyof Events>(eventName: EventName, listener: Events[EventName]) {
 		return super.prependOnceListener(eventName, listener);
 	}
-	override on<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {
+	override on<EventName extends keyof Events>(eventName: EventName, listener: Events[EventName]) {
 		return super.on(eventName, listener);
 	}
-	override prependListener<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {
+	override prependListener<EventName extends keyof Events>(eventName: EventName, listener: Events[EventName]) {
 		return super.prependListener(eventName, listener);
 	}
-	override off<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, listener: TwitchNotificationsEvents[EventName]) {
+	override off<EventName extends keyof Events>(eventName: EventName, listener: Events[EventName]) {
 		return super.off(eventName, listener);
 	}
-	override emit<EventName extends keyof TwitchNotificationsEvents>(eventName: EventName, ...args: Parameters<TwitchNotificationsEvents[EventName]>) {
+	override emit<EventName extends keyof Events>(eventName: EventName, ...args: Parameters<Events[EventName]>) {
 		return super.emit(eventName, ...args);
 	}
 }
-export default new TwitchNotificationsModule();
+export default new Module();
 
 export * from "./channel.js";
 export * from "./stream.js";

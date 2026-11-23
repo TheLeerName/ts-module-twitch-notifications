@@ -5,7 +5,7 @@ import Module from "../index.js";
 
 import * as Discord from "discord.js";
 
-/** That command name uses for slash command allowing/banning system, if this will be banned on server, module will stop functioning on this server */
+/** That command name used for slash command allowing/banning system, if this will be banned on server, module will stop functioning on this server */
 export const slashCommandGetName = "tn-get";
 
 export default () => {

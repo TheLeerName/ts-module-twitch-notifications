@@ -1,4 +1,4 @@
-import { TwitchNotificationsModule as Module } from "./index.js";
+import { Module } from "./index.js";
 import { BaseData } from "../../data.js";
 
 export default class Data extends BaseData {
